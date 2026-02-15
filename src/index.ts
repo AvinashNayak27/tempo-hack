@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { mnemonicToAccount } from "viem/accounts";
-import { parseUnits } from "viem";
+import { parseUnits, verifyMessage } from "viem";
 
 dotenv.config();
 
@@ -115,6 +115,37 @@ app.get("/gm", async (_req, res) => {
       error: {
         message: error instanceof Error ? error.message : "Sign failed",
         type: "sign_error",
+      },
+    });
+  }
+});
+
+// POST /verify - validate attestation or any EIP-191 signed message
+app.post("/verify", async (req, res) => {
+  const { address, message, signature } = req.body ?? {};
+
+  if (!address || !message || !signature) {
+    res.status(400).json({
+      error: {
+        message: "Missing address, message, or signature",
+        type: "validation_error",
+      },
+    });
+    return;
+  }
+
+  try {
+    const valid = await verifyMessage({
+      address: address as `0x${string}`,
+      message,
+      signature: signature as `0x${string}`,
+    });
+    res.json({ valid });
+  } catch (error) {
+    res.status(400).json({
+      valid: false,
+      error: {
+        message: error instanceof Error ? error.message : "Verification failed",
       },
     });
   }
