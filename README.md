@@ -18,7 +18,7 @@ Create a `.env` file with:
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API key for proxying requests |
 | `PROVIDER_WALLET_ADDRESS` | Yes | Wallet address that receives USDC payments |
 | `USDC_TOKEN` | Yes | USDC token contract address on Tempo Moderato |
-| `MNEMONIC` | Yes | Mnemonic for signing attestations (gm, completions, credits) |
+| `MNEMONIC` | Yes* | Mnemonic for signing attestations (gm, completions, credits). When deployed to Eigen Cloud, this is **automatically set by [EigenCompute KMS](https://docs.eigencloud.xyz/eigencompute/concepts/eigencompute-kms-overview)** — derived deterministically from the app ID. For local dev, set manually in `.env`. |
 | `PORT` | No | Server port (default: 3000) |
 
 ## API Endpoints
@@ -74,5 +74,5 @@ Deploy to Eigen Cloud’s TEE for hardware-verified execution using the [ecloud 
 ecloud compute app deploy username/image-name
 ```
 
-The CLI will automatically detect the `Dockerfile` and build your app before deploying to the Trusted Execution Environment.
+The CLI will automatically detect the `Dockerfile` and build your app before deploying to the Trusted Execution Environment. **`MNEMONIC` is injected by [EigenCompute KMS](https://docs.eigencloud.xyz/eigencompute/concepts/eigencompute-kms-overview)** — each app gets a deterministic mnemonic derived from its application ID, so you don't need to provide it when deploying.
 
