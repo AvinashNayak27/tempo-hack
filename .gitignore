@@ -31,6 +31,3 @@ __pycache__/
 
 
 .env
-
-.dockerignore
-Caddyfile
