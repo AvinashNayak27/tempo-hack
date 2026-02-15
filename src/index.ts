@@ -99,6 +99,32 @@ async function verifyPayment(
   return { valid: true };
 }
 
+// Attestation payload: model + usage (verifiable by anyone via verifyMessage)
+interface AttestationPayload {
+  id: string;
+  model: string;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  timestamp: number;
+}
+
+async function signAttestation(payload: AttestationPayload): Promise<{
+  address: string;
+  message: string;
+  signature: `0x${string}`;
+} | null> {
+  const mnemonic = process.env.MNEMONIC;
+  if (!mnemonic) return null;
+
+  const account = mnemonicToAccount(mnemonic);
+  const message = JSON.stringify(payload);
+  const signature = await account.signMessage({ message });
+  return { address: account.address, message, signature };
+}
+
 async function handlePaidCompletions(
   req: express.Request,
   res: express.Response,
@@ -188,6 +214,32 @@ async function proxyToOpenRouter(
       res.end();
     } else {
       const data = (await openRouterRes.json()) as Record<string, unknown>;
+
+      // Add signed attestation for chat completions (model + token usage)
+      if (
+        path === "/chat/completions" &&
+        openRouterRes.ok &&
+        data.id &&
+        data.model &&
+        data.usage
+      ) {
+        const usage = data.usage as Record<string, number>;
+        const payload: AttestationPayload = {
+          id: String(data.id),
+          model: String(data.model),
+          usage: {
+            prompt_tokens: usage?.prompt_tokens ?? 0,
+            completion_tokens: usage?.completion_tokens ?? 0,
+            total_tokens: usage?.total_tokens ?? 0,
+          },
+          timestamp: (data.created as number) ?? Math.floor(Date.now() / 1000),
+        };
+        const attestation = await signAttestation(payload);
+        if (attestation) {
+          data.attestation = attestation;
+        }
+      }
+
       res.status(openRouterRes.status).json(data);
     }
   } catch (error) {
