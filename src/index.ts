@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import { mnemonicToAccount } from "viem/accounts";
 import { parseUnits } from "viem";
 
 dotenv.config();
@@ -89,6 +90,34 @@ async function proxyToOpenRouter(
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
+});
+
+// GET /gm - returns address, signed "gm" + timestamp (verifiable via verifyMessage)
+app.get("/gm", async (_req, res) => {
+  const mnemonic = process.env.MNEMONIC;
+  if (!mnemonic) {
+    res.status(500).json({
+      error: { message: "MNEMONIC not configured", type: "config_error" },
+    });
+    return;
+  }
+
+  try {
+    const account = mnemonicToAccount(mnemonic);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const msg = `gm ${timestamp}`;
+    const signature = await account.signMessage({ message: msg });
+
+    res.json({ address: account.address, msg, signature });
+  } catch (error) {
+    console.error("GM sign error:", error);
+    res.status(500).json({
+      error: {
+        message: error instanceof Error ? error.message : "Sign failed",
+        type: "sign_error",
+      },
+    });
+  }
 });
 
 app.get("/details", async (_req, res) => {
