@@ -337,6 +337,89 @@ app.get("/details", async (_req, res) => {
   });
 });
 
+// Credits payload for signing
+interface CreditsPayload {
+  total_credits: number;
+  total_usage: number;
+  timestamp: number;
+}
+
+async function signCreditsAttestation(payload: CreditsPayload): Promise<{
+  address: string;
+  message: string;
+  signature: `0x${string}`;
+} | null> {
+  const mnemonic = process.env.MNEMONIC;
+  if (!mnemonic) return null;
+
+  const account = mnemonicToAccount(mnemonic);
+  const message = JSON.stringify(payload);
+  const signature = await account.signMessage({ message });
+  return { address: account.address, message, signature };
+}
+
+// GET /credits - OpenRouter credits (total purchased & used), signed attestation
+app.get("/credits", async (_req, res) => {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    res.status(500).json({
+      error: {
+        message: "OPENROUTER_API_KEY not configured",
+        type: "proxy_error",
+      },
+    });
+    return;
+  }
+
+  try {
+    const creditsRes = await fetch("https://openrouter.ai/api/v1/credits", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    if (!creditsRes.ok) {
+      const errText = await creditsRes.text();
+      res.status(creditsRes.status).json({
+        error: {
+          message: `OpenRouter credits API error: ${errText}`,
+          type: "proxy_error",
+        },
+      });
+      return;
+    }
+
+    const data = (await creditsRes.json()) as {
+      data?: { total_credits?: number; total_usage?: number };
+    };
+    const creditsData = data.data ?? {};
+    const totalCredits = creditsData.total_credits ?? 0;
+    const totalUsage = creditsData.total_usage ?? 0;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const payload: CreditsPayload = {
+      total_credits: totalCredits,
+      total_usage: totalUsage,
+      timestamp,
+    };
+
+    const attestation = await signCreditsAttestation(payload);
+
+    res.json({
+      data: { total_credits: totalCredits, total_usage: totalUsage },
+      attestation: attestation ?? undefined,
+    });
+  } catch (error) {
+    console.error("Credits proxy error:", error);
+    res.status(502).json({
+      error: {
+        message:
+          error instanceof Error ? error.message : "Credits request failed",
+        type: "proxy_error",
+      },
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`OpenRouter proxy listening on http://localhost:${PORT}`);
 });
