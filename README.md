@@ -1,4 +1,4 @@
-# tee-proxy
+# KEYVAULT-AI API MARKETPLACE
 
 OpenRouter API proxy with pay-per-call USDC payments on Tempo Moderato. Proxies model listings and chat completions to OpenRouter, requiring a verified `TransferWithMemo` payment ($0.1 USDC) before processing completions. Returns signed attestations for completions and credits.
 
